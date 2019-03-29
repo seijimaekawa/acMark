@@ -1,5 +1,6 @@
 # acMark
-acMark: General Generator for Attributed Graph with Community Structure
+### acMark: General Generator for Attributed Graph with Community Structure  
+Users can control the characteristics of generated graphs by acMark.
 
 ## Requirements
 - numpy >= 1.14.5
@@ -17,6 +18,7 @@ acmark.acmark(output='test.mat',n=1000,m=4000,d=100)
 Other parameters are described below:
 
 ## Parameter (default)
+
 outpath : path to output file (.mat)  
 n (=1000) : number of nodes  
 m (=4000) : number of edges  
