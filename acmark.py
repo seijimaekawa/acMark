@@ -1,4 +1,3 @@
-
 # coding: utf-8
 # # Core Program
 
@@ -8,21 +7,14 @@ import random
 import scipy.io as sio
 from scipy.stats import bernoulli
 
-# ## Inputs
-# ##### 1: number of (nodes, edges, attributes, communities)
-# ##### 2: extremes of (node degree, community size)
-# ##### 3: power law parameters phi for node degree) and phi_c (for community size)
-# ##### 4: dirichlet parameter beta (for attribute) and gamma (for transfer matrix)
-#
-# #### number of edges and extremes of node degree have a strong relationship
-# #### You can choose which value has a priority
+# ## You can see the details of the inputs on README
 
 # ## Outputs
 # ##### 1: adjacency matrix
 # ##### 2: attribute matrix
 # ##### 3: cluster assignment vector
 
-def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,a_d,a_c,att_power,att_uniform,att_normal):
+def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,delta_d,delta_c,att_power,att_uniform,att_normal):
     def selectivity(pri=0,node_d=0,com_s=0):
         # priority
         priority_list = ["edge","degree"]
@@ -52,8 +44,8 @@ def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,
 
     # ## generate a community size list
 
-    def community_generation(n, k, com_size, phi_c, sigma_c, a_c):
-        chi = distribution_generator(com_size, phi_c, sigma_c, a_c, k)
+    def community_generation(n, k, com_size, phi_c, sigma_c, delta_c):
+        chi = distribution_generator(com_size, phi_c, sigma_c, delta_c, k)
         # chi = chi*(chi_max-chi_min)+chi_min
         chi = chi * alpha / sum(chi)
     #Cluster assignment
@@ -64,14 +56,14 @@ def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,
     # ## Cluster assignment
 
 
-    U = community_generation(n, k, com_size, phi_c, sigma_c, a_c)
+    U = community_generation(n, k, com_size, phi_c, sigma_c, delta_c)
 
     # ## Edge construction
 
     # ## node degree generation
 
-    def node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, a_d):
-        theta = distribution_generator(node_degree, phi_d, sigma_d, a_d, n)
+    def node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, delta_d):
+        theta = distribution_generator(node_degree, phi_d, sigma_d, delta_d, n)
         if priority == "edge":
             theta = np.array(list(map(int,theta * m * 2 / sum(theta) + 1)))
         # else:
@@ -79,7 +71,7 @@ def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,
         return theta
 
 
-    theta = node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, a_d)
+    theta = node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, delta_d)
 
     ## Attribute generation
 
@@ -92,24 +84,24 @@ def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,
 
     beta_dist = "normal" # 0:power-law, 1:normal, 2:uniform
     gamma_dist = "normal" # 0:power-law, 1:normal, 2:uniform
-    phi_beta=2;sigma_beta=0.1;a_beta=0.2
-    phi_gamma=2;sigma_gamma=0.1;a_gamma=0.2
+    phi_V=2;sigma_V=0.1;delta_V=0.2
+    phi_H=2;sigma_H=0.1;delta_H=0.2
 
     # generating V
-    chi = distribution_generator(beta_dist, phi_beta, sigma_beta, a_beta, k2)
+    chi = distribution_generator(beta_dist, phi_V, sigma_V, delta_V, k2)
     chi=np.array(chi)/sum(chi)*beta
     V = np.random.dirichlet(chi, num_power+num_uniform+num_normal) # attribute cluster matrix R^{d*k2}
     # generating H
-    chi = distribution_generator(gamma_dist, phi_gamma, sigma_gamma, a_gamma, k2)
+    chi = distribution_generator(gamma_dist, phi_H, sigma_H, delta_H, k2)
     chi=np.array(chi)/sum(chi)*gamma
     H = np.random.dirichlet(chi, k) # cluster transfer matrix R^{k*k2}
 
     return U,H,V,theta
 
-def acmark(outpath="",n=1000,m=4000,d=100,k=5,k2=10,r=10,alpha=0.2,beta=10,gamma=1.,node_d=0,com_s=0,phi_d=3,phi_c=2,sigma_d=0.1,sigma_c=0.1,a_d=3,a_c=2,att_power=0.0,att_uniform=0.0,att_normal=0.5,att_ber=0.0,dev_normal_max=0.3,dev_normal_min=0.1,dev_power_max=3,dev_power_min=2,uni_att=0.2):
+def acmark(outpath="",n=1000,m=4000,d=100,k=5,k2=10,r=10,alpha=0.2,beta=10,gamma=1.,node_d=0,com_s=0,phi_d=3,phi_c=2,sigma_d=0.1,sigma_c=0.1,delta_d=3,delta_c=2,att_power=0.0,att_uniform=0.0,att_normal=0.5,att_ber=0.0,dev_normal_max=0.3,dev_normal_min=0.1,dev_power_max=3,dev_power_min=2,uni_att=0.2):
     if outpath == "":
         raise Exception('Error! outpath is emply.')
-    U,H,V,theta = derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,a_d,a_c,att_power,att_uniform,att_normal)
+    U,H,V,theta = derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,delta_d,delta_c,att_power,att_uniform,att_normal)
     C = [] # cluster list (finally, R^{n})
     for i in range(n):
         C.append(np.argmax(U[i]))
