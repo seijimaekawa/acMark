@@ -46,3 +46,6 @@ dev_power_min (=2)  : lower bound of deviations for power law distribution for r
 dev_normal_max (=0.3) : upper bound of deviations for normal distribution for random attributes  
 dev_normal_min (=0.1) : lower bound of deviations for normal distribution for random attributes  
 uni_att (=0.2)  : range of paramters for uniform distribution for random attributes
+
+
+## Citation
