@@ -14,7 +14,7 @@ Users can control the characteristics of generated graphs by acMark.
 ## Usage
 In a python code,
 > import acmark  
-acmark.acmark(output='test.mat',n=1000,m=4000,d=100)
+A, X, C = acmark.acmark(n=1000, m=4000, d=100)
 
 Other parameters are described below:
 
