@@ -1,6 +1,8 @@
 # acMark
 ### acMark: General Generator for Attributed Graph with Community Structure  
-Users can control the characteristics of generated graphs by acMark.
+Paper : https://gem-ecmlpkdd.github.io/papers/GEM2019_paper_15.pdf
+Users can control the characteristics of generated attributed graphs by acMark.
+acMark scales linearly to the number of edges and the number of attributes so massive attributed graphs can be generated.
 
 ## Requirements
 - numpy >= 1.14.5
@@ -47,6 +49,5 @@ dev_power_min (=2)  : lower bound of deviations for power law distribution for r
 dev_normal_max (=0.3) : upper bound of deviations for normal distribution for random attributes  
 dev_normal_min (=0.1) : lower bound of deviations for normal distribution for random attributes  
 uni_att (=0.2)  : range of paramters for uniform distribution for random attributes
-
 
 ## Citation
