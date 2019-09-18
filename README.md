@@ -1,6 +1,7 @@
 # acMark
 ### acMark: General Generator for Attributed Graph with Community Structure  
 Paper : https://gem-ecmlpkdd.github.io/papers/GEM2019_paper_15.pdf
+
 Users can control the characteristics of generated attributed graphs by acMark.
 acMark scales linearly to the number of edges and the number of attributes so massive attributed graphs can be generated.
 
