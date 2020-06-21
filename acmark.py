@@ -1,241 +1,213 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Oct  2 17:44:02 2019
-
-@author: yamaguchihiroto
-"""
-
-from scipy import io
-import csv
 import numpy as np
 from scipy import sparse
-import random
-import scipy.io as sio
 from scipy.stats import bernoulli
-import matplotlib.pyplot as plt
+import random
+import copy
+import sys
+import powerlaw
+
+def node_deg(n,m,max_deg):
+    p = 2
+    simulated_data = [0]
+    while sum(simulated_data)/2 < m:
+        theoretical_distribution = powerlaw.Power_Law(xmin = 1., parameters = [p])
+        simulated_data=theoretical_distribution.generate_random(n)
+        for i in range(n):
+            while simulated_data[i] >= max_deg:
+                simulated_data[i] = theoretical_distribution.generate_random(1)[0]
+            tmp = int(simulated_data[i]*2)
+            if tmp % 2 != 0:
+                tmp += 1
+            simulated_data[i] = int(tmp/2)
+        if (m - sum(simulated_data)/2) < m/10:
+            p -= 0.01
+        else:
+            p -= 0.1
+        if p<1.01:
+            print("break")
+            break
+            
+    theta = list(simulated_data)
+    for i in range(n):
+        theta[i] = float(theta[i])
+    theta.sort(reverse=True)    
+    return theta
+
+def distribution_generator(flag, para_pow, para_normal, para_zip, t):
+    if flag == "power_law":
+        dist = 1 - np.random.power(para_pow, t) # R^{k}
+    elif flag == "uniform":
+        dist = np.random.uniform(0,1,t)
+    elif flag == "normal":
+        dist = np.random.normal(0.5,para_normal,t)
+    elif flag == "zipfian":
+        dist = np.random.zipf(para_zip,t)
+    return dist
 
 
-# ## You can see the details of the inputs on README
-
-# ## Outputs
-# ##### 1: adjacency matrix
-# ##### 2: attribute matrix
-# ##### 3: cluster assignment vector
-
-def derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,delta_d,delta_c,att_power,att_uniform,att_normal):
-    def selectivity(pri=0,node_d=0,com_s=2):
-        # priority
-        priority_list = ["edge","degree"]
-        priority = priority_list[pri]
-        # node degree
-        node_degree_list = ["power_law","uniform","normal","zipfian"]
-        node_degree = node_degree_list[node_d]
-        # community size
-        com_size_list = ["power_law","uniform","normal","zipfian"]
-        com_size = com_size_list[com_s]
-        return priority, node_degree, com_size
-
-    priority,node_degree,com_size = selectivity(node_d=node_d,com_s=com_s) # (("edge","degree"),("power_law","uniform","normal","zipfian"),("power_law","uniform","normal","zipfian"))
-
-    # ## distribution generator
-
-    def distribution_generator(flag, para_pow, para_normal, para_zip, t):
-        if flag == "power_law":
-            dist = 1 - np.random.power(para_pow, t) # R^{k}
-        elif flag == "uniform":
-            dist = np.random.uniform(0,1,t)
-        elif flag == "normal":
-            dist = np.random.normal(0.5,para_normal,t)
-        elif flag == "zipfian":
-            dist = np.random.zipf(para_zip,t)
-        return dist
-
-    # ## generate a community size list
-
-    def community_generation(n, k, com_size, phi_c, sigma_c, delta_c):
-        chi = distribution_generator(com_size, phi_c, sigma_c, delta_c, k)
-        # chi = chi*(chi_max-chi_min)+chi_min
-        chi = chi * alpha / sum(chi)
-    #Cluster assignment
-        # print(chi)
-        U = np.random.dirichlet(chi, n) # topology cluster matrix R^{n*k}
-        return U
-
-    # ## Cluster assignment
-
-
-    U = community_generation(n, k, com_size, phi_c, sigma_c, delta_c)
-
-    # ## Edge construction
-
-    # ## node degree generation
-
-    def node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, delta_d):
-        theta = distribution_generator(node_degree, phi_d, sigma_d, delta_d, n)
-        if priority == "edge":
-            theta = np.array(list(map(int,theta * m * 2 / sum(theta) + 1)))
-        # else:
-        #     theta = np.array(list(map(int,theta*(theta_max-theta_min)+theta_min)))
-        return theta
-
-
-    theta = node_degree_generation(n, m, priority, node_degree, phi_d, sigma_d, delta_d)
-
-    ## Attribute generation
-
-    num_power = int(d*att_power)
-    num_uniform = int(d*att_uniform)
-    num_normal = int(d*att_normal)
-    num_random = d-num_power-num_uniform-num_normal
-
-    #Input4 for attribute
-
-    beta_dist = "normal" # 0:power-law, 1:normal, 2:uniform
-    gamma_dist = "normal" # 0:power-law, 1:normal, 2:uniform
-    phi_V=2;sigma_V=0.1;delta_V=0.2
-    phi_H=2;sigma_H=0.1;delta_H=0.2
-
-    # generating V
-    chi = distribution_generator(beta_dist, phi_V, sigma_V, delta_V, k2)
-    chi=np.array(chi)/sum(chi)*beta
-    V = np.random.dirichlet(chi, num_power+num_uniform+num_normal) # attribute cluster matrix R^{d*k2}
-    # generating H
-    chi = distribution_generator(gamma_dist, phi_H, sigma_H, delta_H, k2)
-    chi=np.array(chi)/sum(chi)*gamma
-    H = np.random.dirichlet(chi, k) # cluster transfer matrix R^{k*k2}
-
-    return U,H,V,theta
-
-def acmark(outpath="",n=1000,m=4000,d=100,k=5,k2=10,r=10000,alpha=0.1,beta=10,gamma=1.,node_d=0,com_s=2,phi_d=100,phi_c=2,sigma_d=0.1,sigma_c=0.1,delta_d=3,delta_c=2,att_power=0.0,att_uniform=0.0,att_normal=1.0,att_ber=0.0,dev_normal_max=0.3,dev_normal_min=0.1,dev_power_max=3,dev_power_min=2,uni_att=0.2):
-    if outpath == "":
-        raise Exception('Error! outpath is emply.')
-    U,H,V,theta = derived_from_dirichlet(n,m,d,k,k2,alpha,beta,gamma,node_d,com_s,phi_d,phi_c,sigma_d,sigma_c,delta_d,delta_c,att_power,att_uniform,att_normal)
-    C = [] # cluster list (finally, R^{n})
+def class_generation(n, k, alpha, phi_c):
+    chi = distribution_generator("power_law",phi_c,0,0, k)
+#     chi = distribution_generator("normal",phi_c,0,0, k)
+    
+    chi = np.array(chi) * alpha / sum(chi)
+    U = np.random.dirichlet(chi, n)
+    C = [] # class assignment list (finally, R^{n})
     for i in range(n):
         C.append(np.argmax(U[i]))
-    r *= k
-    def edge_construction(n, U, theta, around = 1.0, r = 10*k):
-        countr = 0
-        countd = 0
-    # list of edge construction candidates
-        S = sparse.dok_matrix((n,n))
-        degree_list = np.zeros(n)
-        # print_count=0
-        theta = np.sort(theta)[::-1]
-        for i in range(n):
-            # if 100*i/n+1 >= print_count:
-            #     print(str(print_count)+"%",end="\r",flush=True)
-            #     print_count+=1
-            count = 0
-            while count < r and degree_list[i] < theta[i]:
-                # step1 create candidate list
-                candidate = []
-##                n_candidate = theta[i]
-                for j in range(i,n):
-                    candidate.append(j)
-                random.shuffle(candidate)
-                
-##                candidate = np.random.randint(0,n-1,size=n_candidate) # for undirected graph
-##                candidate = list(set(candidate))
-                # step2 create edges
-                for j in candidate:
-                    if i < j:
-                        i_ = i;j_ = j
-                    else:
-                        i_ = j;j_ = i
-                    if i_ != j_ and S[i_,j_] == 0 and degree_list[i_] < around * theta[i_] and degree_list[j_] < around * theta[j_]:
-                        S[i_,j_] = np.random.poisson(U[i_,:].transpose().dot(U[j_,:]),1) # ingoring node degree
-                        if S[i_,j_] > 0:
-                            S[i_,j_] = 1
-                            S[j_,i_] = S[i_,j_]
-                            degree_list[i_]+=1;degree_list[j_]+=1
-                count += 1
-                
-            if count == r:
-                countr += 1
-#                print((degree_list[i] , theta[i]))
-            if degree_list[i] == theta[i]:
-                countd += 1
-#        print(theta)
-#        print(sum(theta))
-#        print((countr,countd))
 
+    counter=[];x=[]
+    for i in range(k):
+        x.append(i)
+        counter.append(C.count(i))
+    print("class size disribution : ",end="")
+    print(counter)
+    if 0 in counter:
+        print('Error! There is a class which has no member.')
+        sys.exit(1)
 
-     
-        return S
+    return U,C
 
-    S = edge_construction(n, U, theta)
-
-    ### Attribute Generation ###
-
-    def sigmoid(x):
-        return 1.0 / (1.0 + np.exp(-x))
-
-    ### Construct attribute matrix X from latent factors ###
-    X = U.dot(H.dot(V.T))
-    # X = sigmoid(U.dot(H)).dot(W.transpose())
-
-    # ### Variation of attribute
-    num_bernoulli = int(d*att_ber)
-    num_power = int(d*att_power)
-    num_uniform = int(d*att_uniform)
-    num_normal = int(d*att_normal)
-    num_random = d-num_power-num_uniform-num_normal
-    def variation_attribute(n,k,X,C,num_bernoulli,num_power,num_uniform,num_normal,dev_normal_min,dev_normal_max,dev_power_min,dev_power_max,uni_att):
-        for i in range(num_bernoulli):
-                for p in range(n):
-                    X[p,i] = bernoulli.rvs(p=X[p,i], size=1)
-        dim = num_bernoulli
-
-        for i in range(num_power): # each demension
-            clus_dev = np.random.uniform(dev_normal_min,dev_normal_max-0.1,k)
-            exp = np.random.uniform(dev_power_min,dev_power_max,1)
-            for p in range(n): # each node
-                X[p,i] = (X[p,i] * np.random.normal(1.0,clus_dev[C[p]],1)) ** exp #clus_dev[C[p]]
-
-        dim += num_power
-        for i in range(dim,dim+num_uniform): # each demension
-            clus_dev = np.random.uniform(1.0-uni_att,1.0+uni_att,n)
-            for p in range(n):
-                X[p,i] *= clus_dev[C[p]]
-
-        dim += num_uniform
-        for i in range(dim,dim+num_normal): # each demension
-            clus_dev = np.random.uniform(dev_normal_min,dev_normal_max,k)
-            for p in range(n): # each node
-                X[p,i] *= np.random.normal(1.0,clus_dev[C[p]],1)
-        return X
-
-    ### Apply probabilistic distributions to X ###
-
-    X = variation_attribute(n,k,X,C,num_bernoulli,num_power,num_uniform,num_normal,dev_normal_min,dev_normal_max,dev_power_min,dev_power_max,uni_att)
-
-    # random attribute
-    def concat_random_attribute(n,X,num_random):
-        rand_att = []
-        for i in range(num_random):
-            random_flag = random.randint(0,2)
-            if random_flag == 0:
-                rand_att.append(np.random.normal(0.5,0.2,n))
-            elif random_flag == 1:
-                rand_att.append(np.random.uniform(0,1,n))
-            else:
-                rand_att.append(1.0-np.random.power(2,n))
-        return np.concatenate((X, np.array(rand_att).T), axis=1)
-
-    if num_random != 0:
-        X = concat_random_attribute(n,X,num_random)
-
-    # ## Regularization for attributes
-
-    for i in range(d):
-        X[:,i] -= np.amin(X[:,i])
-        X[:,i] /= np.amax(X[:,i])
-
-    sio.savemat(outpath,{'S':S,'X':X,'C':C})
-
-
+def adjust(n,k,U,C,density):
+    U_prime = copy.deepcopy(U)
+    partition = []
+    for i in range(k):
+        partition.append([])
+    for i in range(len(C)):
+        partition[C[i]].append(i)
+        
+    # Freezing function
+    def freez_func(q,Th):
+        return q**(1/Th) / np.sum(q**(1/Th))
     
+    def inverse(U_tmp):
+        U_ = 1 - U_tmp
+        U_ /= sum(U_tmp)
+        return U_
+    
+    for l in range(k):
+        Th=1
+        if  density[l] >= 1/k:
+            while True:
+                Th -= 0.1
+                max_entry_value = 0
+                for j in partition[l]:
+                    max_entry_value += freez_func(U[j],Th)[l]**2
+                if density[l] < max_entry_value/len(partition[l]):
+                    break
+                if Th <= 0:
+                    print("break1")
+                    break
+            for j in partition[l]:
+                U[j] = freez_func(U[j],Th)
+                U_prime[j] = U[j]
+        else:
+            while True:
+                Th -= 0.1
+                max_entry_value = 0
+                for j in partition[l]:
+                    U_tmp = freez_func(U[j],Th)
+                    max_entry_value += U_tmp[l]*inverse(U_tmp)[l]
+                if density[l] > max_entry_value/len(partition[l]):
+                    break
+                if Th <= 0:
+                    print("break2")
+                    break
+            for j in partition[l]:
+                U[j] = freez_func(U[j],Th)
+                U_prime[i] = inverse(U[j])
+    return U, U_prime
+        
+def edge_construction(n, U, k, U_prime, step, theta, r):
+    U_ = copy.deepcopy(U)
+    
+    S = sparse.dok_matrix((n,n))
+    degree_list = np.zeros(n)
+    count_list = []
 
-acmark(outpath="test.mat")
+    print_count = 1
+    for i in range(n):
+        if i/n * 10 > print_count:
+            print("finished " +str(print_count)+"0%")
+            print_count += 1
+        count = 0
+        ng_list = set([i])
+        while count < r and degree_list[i] < theta[i]:
+            to_classes = random.choices(list(range(0,k)), k=int(theta[i]-degree_list[i]), weights=U_[i])
+            for to_class in to_classes:
+                for loop in range(50):
+                    j = U_prime[to_class][int(random.random()/step)]
+                    if j not in ng_list:
+                        ng_list.add(j)
+                        break
+                if degree_list[j] < theta[j] and i!=j:
+                    S[i,j] = 1;S[j,i] = 1
+                    degree_list[i]+=1;degree_list[j]+=1
+            count += 1 
+        count_list.append(count)
+    return S, count_list
+
+def ITS_U_prime(n,k,U_prime):
+    class_list = []
+    step = 1/(n*100)
+    UT = U_prime.transpose()
+    for i in range(k):
+        UT_tmp = UT[i]/ sum(UT[i])
+        for j in range(n-1):
+            UT_tmp[j+1] += UT_tmp[j]
+
+        class_tmp = []
+        node_counter = 0
+        for l in np.arange(0,1,step):
+            if UT_tmp[node_counter] > l:
+                class_tmp.append(node_counter)
+            else:
+                node_counter += 1
+                class_tmp.append(node_counter)
+        class_list.append(class_tmp)
+    return class_list
+
+def attribute_generation(n,d,k,U,C,beta,sigma,omega):
+    chi = distribution_generator("normal", 0, sigma, 0, k)
+    V = np.random.dirichlet(chi*beta, d).T
+    X = U@V
+
+    def variation_attribute(n,d,k,X,C,att_flag="normal"):
+        if att_flag == "normal":
+            for i in range(d): # each attribute demension
+                clus_dev = np.random.uniform(omega,omega,k) # variation for each class
+                for p in range(n): # each node
+                    X[p,i] += np.random.normal(0.0,clus_dev[C[p]],1)    
+        else: # Bernoulli distribution
+            for i in range(d):
+                for p in range(n):
+                    X[p,i] = bernoulli.rvs(p=X[p,i], size=1)        
+        # normalization
+        for i in range(d):
+            X[:,i] -= min(X[:,i])
+            X[:,i] /= max(X[:,i])
+        return X
+    return variation_attribute(n,d,k,X,C)
+    
+    
+def acmark(n,m,k,d,max_deg,density,alpha=1,phi_c=1,beta=0.1,sigma=0,omega=0.2,r=50):
+    # node degree generation 
+    theta = node_deg(n,m,max_deg)
+
+    # class generation
+    U,C = class_generation(n,k,alpha,phi_c)
+    
+    # adjusting phase
+    U,U_prime = adjust(n,k,U,C,density)
+    
+    # Inverse Transform Sampling
+    U_prime_CDF = ITS_U_prime(n,k,U_prime)
+
+    # Edge generation
+    S_gen, count_list = edge_construction(n, U, k, U_prime_CDF, 1/(n*100), theta, r)
+    num_edges = S_gen.sum()/2
+    print("number of generated edges : " + str(num_edges))
+    
+    # Attribute generation
+    X = attribute_generation(n,d,k,U,C,beta,sigma,omega)
+    
+    return S_gen,X,C
