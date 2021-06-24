@@ -6,13 +6,13 @@ Users can control the characteristics of generated attributed graphs by acMark.
 acMark scales linearly to the number of edges and the number of attributes so massive attributed graphs can be generated.
 
 ## Requirements
-- numpy == 1.18.2
-- scipy == 1.4.1
+- numpy == 1.20.2
+- scipy == 1.6.2
 - powerlaw == 1.4.6
 
 (for demo)
-- matplotlab == 3.2.1
-- seaborn == 0.10.1
+- matplotlab == 3.4.1
+- seaborn == 0.11.1
 
 ## Usage
 We show the demo in the jupyter notebook
